@@ -1,6 +1,6 @@
 import secrets
 from fastapi import Header, HTTPException
-from backend.app.config import settings
+from app.config import settings
 
 
 def verify_api_key(x_api_key: str | None = Header(default=None)):

@@ -1,7 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from backend.app import jobs
-from backend.app.services import analysis_pipeline
+from app import jobs
+from app.services import analysis_pipeline
 
 log = logging.getLogger("worker")
 executor = ThreadPoolExecutor(max_workers=1)

@@ -2,8 +2,8 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app import jobs
-from backend.app.api import analyze, status
+from app import jobs
+from app.api import analyze, status
 
 logging.basicConfig(level=logging.INFO)
 

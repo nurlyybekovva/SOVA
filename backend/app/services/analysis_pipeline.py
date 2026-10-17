@@ -1,8 +1,8 @@
 import logging
 import time
-from backend.app.config import settings
-from backend.app.schemas import MLOutput
-from backend.app.services import compliance_engine, evidence_generator
+from app.config import settings
+from app.schemas import MLOutput
+from app.services import compliance_engine, evidence_generator
 
 log = logging.getLogger("pipeline")
 _analyzer = None
@@ -13,10 +13,10 @@ def get_analyzer():
     global _analyzer
     if _analyzer is None:
         if settings.use_stub:
-            from backend.app.ml.stub_analyzer import StubAnalyzer
+            from app.ml.stub_analyzer import StubAnalyzer
             _analyzer = StubAnalyzer()
         else:
-            from backend.app.ml.qwen_analyzer import QwenAnalyzer  # written by participant #4
+            from app.ml.qwen_analyzer import QwenAnalyzer  # written by participant #4
             _analyzer = QwenAnalyzer()
     return _analyzer
 

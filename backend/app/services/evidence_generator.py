@@ -1,4 +1,4 @@
-from backend.app.services.video_processor import extract_frames, frame_to_base64, get_video_info
+from app.services.video_processor import extract_frames, frame_to_base64, get_video_info
 
 
 def attach_evidence(video_path: str, violations: list[dict]) -> list[dict]:

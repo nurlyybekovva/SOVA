@@ -1,5 +1,5 @@
-from backend.app.ml.base import BaseVideoAnalyzer
-from backend.app.services.video_processor import get_video_info
+from app.ml.base import BaseVideoAnalyzer
+from app.services.video_processor import get_video_info
 
 
 class StubAnalyzer(BaseVideoAnalyzer):

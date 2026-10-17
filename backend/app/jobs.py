@@ -1,7 +1,7 @@
 import json
 import sqlite3
 import time
-from backend.app.config import settings
+from app.config import settings
 
 
 def _conn():

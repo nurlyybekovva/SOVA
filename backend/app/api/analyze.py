@@ -1,10 +1,10 @@
 import uuid
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from backend.app import jobs, worker
-from backend.app.config import settings
-from backend.app.schemas import AnalyzeResponse
-from backend.app.security import verify_api_key
+from app import jobs, worker
+from app.config import settings
+from app.schemas import AnalyzeResponse
+from app.security import verify_api_key
 
 router = APIRouter()
 

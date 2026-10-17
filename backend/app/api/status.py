@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from backend.app import jobs
-from  backend.app.security import verify_api_key
+from app import jobs
+from  app.security import verify_api_key
 
 router = APIRouter()
 
