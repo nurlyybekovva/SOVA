@@ -13,10 +13,10 @@ def get_analyzer():
     global _analyzer
     if _analyzer is None:
         if settings.use_stub:
-            from app.ml.stub_analyzer import StubAnalyzer
+            from backend.app.ml.stub_analyzer import StubAnalyzer
             _analyzer = StubAnalyzer()
         else:
-            from app.ml.qwen_analyzer import QwenAnalyzer  # written by participant #4
+            from backend.app.ml.qwen_analyzer import QwenAnalyzer  # written by participant #4
             _analyzer = QwenAnalyzer()
     return _analyzer
 
