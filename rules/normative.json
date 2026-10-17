@@ -1,0 +1,1616 @@
+{
+  "meta": {
+    "version": "0.3",
+    "document": "Постановление Правления Национального Банка РК от 29.11.2019 № 231 (зарегистрировано в Минюсте РК 03.12.2019 № 19680): Правила осуществления кассовых операций и операций по инкассации банкнот, монет и ценностей",
+    "source_url": "https://adilet.zan.kz/rus/docs/V1900019680",
+    "notes": [
+      "visual_observability = how likely a violation of this rule can be established from video alone (high / medium / low).",
+      "enabled_for_mvp = false means the rule is kept in the file but must NOT be sent to the model or used for verdicts (cannot be established from video).",
+      "evaluation_scope = 'operation' means the rule can only be judged after looking at the whole operation (several 10-second segments), never from one segment alone.",
+      "Chapter 3 (incassation, points 86-133) and the appendices are intentionally NOT covered: the task is about cash desk videos. Revisit only if dataset videos show incassation.",
+      "dataset_examples contains dataset video ids for the team only. Never put them into the model prompt.",
+      "External acts needed to cite exact points for doors, room security and counterfeit checks: Правила организации охраны и устройства помещений (постановление НБРК от 24.02.2020 № 14, рег. № 20075) and Правила определения платежности банкнот и монет (постановление НБРК от 29.11.2017 № 230, рег. № 16120)."
+    ]
+  },
+  "global_llm_instructions": [
+    "You analyze frames from a bank cashier desk camera. You are an observer, not a judge.",
+    "Describe ONLY what is clearly visible in the frames. Never invent actions, objects or people.",
+    "If you cannot tell what an object is (money, document, phone), say 'object' and add 'object_type' to uncertain_details. Never say 'money' unless banknotes are clearly visible.",
+    "Report timestamps in seconds of the ORIGINAL video, not relative to the segment.",
+    "A segment shows only a part of an operation. A step that is not visible in this segment may happen before or after it. Do not report a missing step from a single segment.",
+    "Use the action ids from event_vocabulary. If nothing fits, use 'other_action' and describe it in plain words.",
+    "Do not make legal conclusions. Say 'possible' and describe what is seen. The compliance engine decides about rules."
+  ],
+  "event_vocabulary": [
+    {
+      "id": "client_at_window",
+      "description": "A client stands or sits at the cashier window / desk."
+    },
+    {
+      "id": "client_leaves_window",
+      "description": "The client walks away from the cashier window."
+    },
+    {
+      "id": "id_document_handed",
+      "description": "The client gives an ID-like card or document to the cashier, or the cashier takes it."
+    },
+    {
+      "id": "id_document_examined",
+      "description": "The cashier looks at an ID-like document (looks at it and then at the client, or holds it close)."
+    },
+    {
+      "id": "cashier_counts_cash",
+      "description": "The cashier counts banknotes by hand or with a counting machine."
+    },
+    {
+      "id": "cash_taken_from_client",
+      "description": "The cashier takes banknotes or an object that may be cash from the client."
+    },
+    {
+      "id": "cash_handed_to_client",
+      "description": "The cashier gives banknotes or an object that may be cash to the client."
+    },
+    {
+      "id": "client_counts_cash",
+      "description": "The client counts banknotes (at the window or elsewhere)."
+    },
+    {
+      "id": "cash_placed_in_storage",
+      "description": "Cash is put into a drawer, safe, cabinet, trolley or other storage."
+    },
+    {
+      "id": "storage_open_unattended",
+      "description": "A drawer, safe or cash box is open or cash lies on the desk while the cashier is not at the workplace."
+    },
+    {
+      "id": "cash_sorted_or_packed",
+      "description": "Banknotes are sorted into stacks, banded or packed."
+    },
+    {
+      "id": "document_signed",
+      "description": "Someone signs a paper document (write with a pen on a form)."
+    },
+    {
+      "id": "stamp_applied",
+      "description": "The cashier presses a stamp on a paper document."
+    },
+    {
+      "id": "document_handed_to_client",
+      "description": "The cashier gives a paper document (receipt, slip) to the client."
+    },
+    {
+      "id": "second_employee_present",
+      "description": "A second employee (possible controlling worker or supervisor) stands next to the cashier during the action."
+    },
+    {
+      "id": "banknote_authenticity_check",
+      "description": "The cashier checks banknotes with a detector, UV lamp, pen or by close visual inspection."
+    },
+    {
+      "id": "person_enters_vault",
+      "description": "A person enters a vault or safe room."
+    },
+    {
+      "id": "cashier_leaves_workplace",
+      "description": "The cashier stands up and walks away from the desk or window, or leaves the camera view."
+    },
+    {
+      "id": "cashier_returns_to_workplace",
+      "description": "The cashier comes back to the desk or window."
+    },
+    {
+      "id": "personal_item_in_cash_area",
+      "description": "A personal item (handbag, backpack, jacket, wallet, food, drink, small container) is on the desk or in the cash area."
+    },
+    {
+      "id": "phone_in_use",
+      "description": "A mobile phone is visible on the desk or in the cashier's hands, or the cashier looks at it or talks on it."
+    },
+    {
+      "id": "cash_transferred_between_employees",
+      "description": "Cash or a cash bag is passed from one bank employee to another."
+    },
+    {
+      "id": "cash_left_on_desk",
+      "description": "Banknotes or a stack of cash lie on the desk when no counting or handing over is in progress."
+    },
+    {
+      "id": "cash_bag_handed_over",
+      "description": "A person gives a cash bag (for example a green bag) to the cashier."
+    },
+    {
+      "id": "cash_bag_opened",
+      "description": "The cashier opens a cash bag and takes out the contents."
+    },
+    {
+      "id": "cash_bag_left_on_desk",
+      "description": "A cash bag lies on the desk when the cashier is not working with it."
+    },
+    {
+      "id": "next_client_arrives",
+      "description": "A new visitor enters the room or sits down at the desk."
+    },
+    {
+      "id": "safe_door_open",
+      "description": "The door of the safe is open."
+    },
+    {
+      "id": "key_left_in_lock",
+      "description": "A key or key ring stays in the lock of the safe or a door."
+    },
+    {
+      "id": "stamp_left_on_desk",
+      "description": "Stamps lie on the desk when the cashier is not using them."
+    },
+    {
+      "id": "computer_unattended_unlocked",
+      "description": "A computer or laptop screen is on and open while nobody sits at it."
+    },
+    {
+      "id": "room_door_left_open",
+      "description": "The door of the room stays open."
+    },
+    {
+      "id": "other_action",
+      "description": "Any other relevant action that is not in this list. Describe it in plain words."
+    }
+  ],
+  "rules": [
+    {
+      "id": "kz231_p20_receive_count",
+      "enabled_for_mvp": true,
+      "visual_observability": "high",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "20",
+        "text_ru": "Наличные деньги принимаются и пересчитываются кассовым работником в присутствии клиента.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_reception",
+      "actors": [
+        "cashier",
+        "client"
+      ],
+      "llm_description": "When a client deposits cash, the cashier must take the cash and count it while the client is still present at the window. Look for the sequence: client at window, cashier takes cash, cashier counts it, all while the client is there.",
+      "expected_normal_behavior": [
+        "The client is at the window while the cashier counts the cash.",
+        "The cashier counts the banknotes (by hand or with a machine) in front of the client."
+      ],
+      "violation_indicators": [
+        "The client leaves the window right after handing over cash, and only then the cashier counts it.",
+        "The cashier takes the cash and moves it out of the client's sight (under the desk, behind a partition, to another room) before counting.",
+        "The cashier puts the received cash into storage without any visible counting while the client waits.",
+        "The client or the person who brought the cash leaves the window or the room while the cash is still in the counting machine or is being counted."
+      ],
+      "do_not_flag_if": [
+        "The cash is not clearly visible and you cannot tell whether it is a deposit.",
+        "The client only steps back for a moment and the counting happens in the client's view.",
+        "The counting could happen before or after the visible segment."
+      ],
+      "related_events": [
+        "client_at_window",
+        "cash_taken_from_client",
+        "cashier_counts_cash",
+        "client_leaves_window",
+        "cash_placed_in_storage"
+      ],
+      "violation_type": "cash_not_counted_in_client_presence",
+      "explanation_ru": "Наличные деньги должны приниматься и пересчитываться кассовым работником в присутствии клиента. На видео наблюдается: {observation}. Требует проверки по п. 20 Правил (Постановление НБРК № 231).",
+      "disabled_reason": null,
+      "dataset_examples": [
+        "X-34"
+      ],
+      "norm_link_strength": "direct"
+    },
+    {
+      "id": "kz231_p31_1_identification",
+      "enabled_for_mvp": false,
+      "visual_observability": "high",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 3 — Порядок осуществления кассовых операций по выдаче, размену и обмену наличных денег",
+        "point": "31.1",
+        "text_ru": "Кассовый работник банка проводит визуальную идентификацию клиента по данным документа, удостоверяющего личность, либо данным, подтверждающим (идентифицирующим) личность клиента, полученным посредством сервиса цифровых документов.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_issuance",
+      "actors": [
+        "cashier",
+        "client"
+      ],
+      "llm_description": "Before cash is issued to a client, the cashier must visually identify the client using an ID document (or data from a digital document service). Look for the client handing an ID-like card, the cashier looking at it and at the client, before cash is handed over.",
+      "expected_normal_behavior": [
+        "The client gives an ID-like document or shows a phone with digital documents.",
+        "The cashier examines it and compares it with the client."
+      ],
+      "violation_indicators": [
+        "Cash is handed to the client during the whole operation and no ID document is shown or examined at any time.",
+        "The cashier never looks at any document or screen with client data before issuing cash."
+      ],
+      "do_not_flag_if": [
+        "The identification may have happened before the video starts.",
+        "The client shows a phone and you cannot see what is on it (digital documents are allowed).",
+        "The operation is a deposit (see kz231_p19_1_identification_reception)."
+      ],
+      "related_events": [
+        "id_document_handed",
+        "id_document_examined",
+        "cash_handed_to_client"
+      ],
+      "violation_type": "client_identification_not_observed",
+      "explanation_ru": "Перед выдачей наличных денег кассовый работник должен провести визуальную идентификацию клиента. На видео наблюдается: {observation}. Требует проверки по пп. 31.1 Правил (Постановление НБРК № 231).",
+      "disabled_reason": "No example among the 20 violation videos reviewed so far (X-4 ... X-47). Enabling it risks false positives on videos without violations. Re-enable if the 2 remaining violation videos or the jury data show it.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p31_4_count_and_issue",
+      "enabled_for_mvp": false,
+      "visual_observability": "high",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 3 — Порядок осуществления кассовых операций по выдаче, размену и обмену наличных денег",
+        "point": "31.4",
+        "text_ru": "Кассовый работник банка пересчитывает подготовленные к выдаче наличные деньги в присутствии клиента, выдает клиенту наличные деньги;",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_issuance",
+      "actors": [
+        "cashier",
+        "client"
+      ],
+      "llm_description": "When issuing cash, the cashier must count the prepared cash in front of the client and then give it to the client. Look for: cashier counts banknotes while the client is at the window, then hands the cash to the client.",
+      "expected_normal_behavior": [
+        "The cashier counts the cash in the client's view.",
+        "After counting, the cashier hands the cash to the client."
+      ],
+      "violation_indicators": [
+        "The cashier hands cash to the client without any visible counting.",
+        "The cashier counts the cash out of the client's sight (client absent, or cash hidden behind a partition or under the desk).",
+        "The client is not at the window while the cashier counts and prepares the cash."
+      ],
+      "do_not_flag_if": [
+        "The cash was counted before the visible part of the video starts.",
+        "Counting is done by a machine and the client is clearly present.",
+        "You cannot see the hands or the cash well enough."
+      ],
+      "related_events": [
+        "client_at_window",
+        "cashier_counts_cash",
+        "cash_handed_to_client"
+      ],
+      "violation_type": "cash_not_counted_before_issuance",
+      "explanation_ru": "Кассовый работник должен пересчитать подготовленные к выдаче наличные деньги в присутствии клиента и выдать их клиенту. На видео наблюдается: {observation}. Требует проверки по пп. 31.4 Правил (Постановление НБРК № 231).",
+      "disabled_reason": "No example among the 20 violation videos reviewed so far (X-4 ... X-47). Enabling it risks false positives on videos without violations. Re-enable if the 2 remaining violation videos or the jury data show it.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p31_5_sign_stamp",
+      "enabled_for_mvp": false,
+      "visual_observability": "medium",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 3 — Порядок осуществления кассовых операций по выдаче, размену и обмену наличных денег",
+        "point": "31.5",
+        "text_ru": "Кассовый работник банка подписывает все экземпляры расходного кассового документа и проставляет штамп кассового работника банка на всех экземплярах расходного кассового документа",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_issuance",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "During an issuance the cashier signs every copy of the cash expense document and puts the cashier stamp on every copy. Look for the cashier writing a signature and pressing a stamp on paper documents.",
+      "expected_normal_behavior": [
+        "The cashier signs the paper documents.",
+        "The cashier presses a stamp on the documents."
+      ],
+      "violation_indicators": [
+        "The whole issuance is visible and the cashier never signs or stamps any document.",
+        "The cashier signs but no stamping is visible at any time (report only if the stamp is normally clearly visible in this camera view)."
+      ],
+      "do_not_flag_if": [
+        "The signing or stamping may happen before or after the visible part of the video.",
+        "The documents are not visible because of the camera angle.",
+        "The operation may be done with electronic documents."
+      ],
+      "related_events": [
+        "document_signed",
+        "stamp_applied",
+        "cash_handed_to_client"
+      ],
+      "violation_type": "expense_document_not_signed_or_stamped",
+      "explanation_ru": "Кассовый работник должен подписать все экземпляры расходного кассового документа и проставить штамп на всех экземплярах. На видео наблюдается: {observation}. Требует проверки по пп. 31.5 Правил (Постановление НБРК № 231).",
+      "disabled_reason": "No example among the 20 violation videos reviewed so far (X-4 ... X-47). Enabling it risks false positives on videos without violations. Re-enable if the 2 remaining violation videos or the jury data show it.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p31_6_give_document",
+      "enabled_for_mvp": false,
+      "visual_observability": "medium",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 3 — Порядок осуществления кассовых операций по выдаче, размену и обмену наличных денег",
+        "point": "31.6",
+        "text_ru": "Кассовый работник банка выдает клиенту документ, подтверждающий проведение кассовой операции по выдаче наличных денег.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_issuance",
+      "actors": [
+        "cashier",
+        "client"
+      ],
+      "llm_description": "At the end of an issuance the cashier must give the client a document confirming the operation (receipt or slip). Look for the cashier handing a paper to the client near the end of the operation.",
+      "expected_normal_behavior": [
+        "After the cash is issued, the cashier hands a paper document to the client."
+      ],
+      "violation_indicators": [
+        "The client receives cash and leaves the window, and no document is handed to the client at any time during the visible operation."
+      ],
+      "do_not_flag_if": [
+        "The video ends before the operation is finished.",
+        "The client may have received an electronic confirmation.",
+        "You cannot see the client's hands."
+      ],
+      "related_events": [
+        "cash_handed_to_client",
+        "document_handed_to_client",
+        "client_leaves_window"
+      ],
+      "violation_type": "confirmation_document_not_given",
+      "explanation_ru": "Кассовый работник должен выдать клиенту документ, подтверждающий проведение кассовой операции по выдаче наличных денег. На видео наблюдается: {observation}. Требует проверки по пп. 31.6 Правил (Постановление НБРК № 231).",
+      "disabled_reason": "No example among the 20 violation videos reviewed so far (X-4 ... X-47). Enabling it risks false positives on videos without violations. Re-enable if the 2 remaining violation videos or the jury data show it.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p35_client_counts",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, Параграф 3 — Порядок осуществления кассовых операций по выдаче, размену и обмену наличных денег",
+        "point": "35",
+        "text_ru": "Клиент пересчитывает полученные наличные деньги, не отходя от кассы, или в помещении для пересчета наличных денег клиентами в присутствии кассового работника или контролирующего работника.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_issuance",
+      "actors": [
+        "client",
+        "cashier",
+        "controlling_employee"
+      ],
+      "llm_description": "After receiving cash the client counts it at the cashier window, or in a special counting room with a cashier or controlling employee present. Look for a client who takes cash and counts it somewhere else (for example far from the window, with nobody from the bank watching).",
+      "expected_normal_behavior": [
+        "The client counts the cash while standing at the window.",
+        "Or the client counts it in a counting room together with a bank employee."
+      ],
+      "violation_indicators": [
+        "The client takes the cash, moves away from the window and counts it in a place where no bank employee is present.",
+        "A bank employee lets the client carry the cash away to count it without supervision."
+      ],
+      "do_not_flag_if": [
+        "The client simply puts the money away without counting (this is the client's choice and is not visible as a bank violation).",
+        "You do not know whether the place is a designated counting room.",
+        "The client counts at the window."
+      ],
+      "related_events": [
+        "client_counts_cash",
+        "client_leaves_window",
+        "second_employee_present"
+      ],
+      "violation_type": "client_counting_outside_allowed_place",
+      "explanation_ru": "Клиент пересчитывает полученные наличные деньги, не отходя от кассы, или в помещении для пересчета в присутствии работника банка. На видео наблюдается: {observation}. Требует проверки по п. 35 Правил (Постановление НБРК № 231).",
+      "disabled_reason": "Point 35 describes how the CLIENT counts the money and what follows for the client's claims about shortages. It does not place a duty on the cashier, so a client walking away is not a bank violation that can be claimed from video.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p42_counting_with_controller",
+      "enabled_for_mvp": false,
+      "visual_observability": "medium",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, Параграф 4 — Порядок осуществления кассовых операций по пересчету, сортировке и упаковке наличных денег",
+        "point": "42",
+        "text_ru": "Кассовые операции по пересчету, сортировке и упаковке наличных денег осуществляются кассовым работником в присутствии контролирующего работника, за исключением случаев совершения кассовых операций по приему и выдаче наличных денег клиенту.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "counting_sorting_packing",
+      "actors": [
+        "cashier",
+        "controlling_employee"
+      ],
+      "llm_description": "Counting, sorting and packing of cash that is NOT part of serving a client (for example preparing bundles, end-of-day work) must be done by the cashier with a controlling employee present. Look for a cashier who counts, sorts or packs cash alone, with no client and no second employee next to them.",
+      "expected_normal_behavior": [
+        "A second employee stands near or watches while the cashier counts, sorts or packs cash.",
+        "Counting during service of a client (reception or issuance) is excluded from this rule."
+      ],
+      "violation_indicators": [
+        "The cashier sorts, counts or packs cash for a long time, no client is being served, and no second employee is present near the cashier."
+      ],
+      "do_not_flag_if": [
+        "A client is at the window (this is reception or issuance, the exception applies).",
+        "A second employee may be outside the camera view.",
+        "You cannot tell that the cash handling is not related to serving a client."
+      ],
+      "related_events": [
+        "cash_sorted_or_packed",
+        "cashier_counts_cash",
+        "second_employee_present",
+        "client_at_window"
+      ],
+      "violation_type": "cash_counted_without_controlling_employee",
+      "explanation_ru": "Пересчет, сортировка и упаковка наличных денег осуществляются кассовым работником в присутствии контролирующего работника (кроме приема и выдачи клиенту). На видео наблюдается: {observation}. Требует проверки по п. 42 Правил (Постановление НБРК № 231).",
+      "disabled_reason": "No example among the 20 violation videos reviewed so far (X-4 ... X-47). Enabling it risks false positives on videos without violations. Re-enable if the 2 remaining violation videos or the jury data show it.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p34_exchange_after_issue",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, Параграф 3 — Порядок осуществления кассовых операций по выдаче, размену и обмену наличных денег",
+        "point": "34",
+        "text_ru": "Обмен наличных денег одного номинала на другие по требованию клиента допускается после осуществления выдачи клиенту подготовленных наличных денег.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_exchange",
+      "actors": [
+        "cashier",
+        "client"
+      ],
+      "llm_description": "Exchange of banknotes of one denomination for another is allowed only after the prepared cash has been issued to the client.",
+      "expected_normal_behavior": [],
+      "violation_indicators": [],
+      "do_not_flag_if": [],
+      "related_events": [],
+      "violation_type": "exchange_before_issuance",
+      "explanation_ru": null,
+      "disabled_reason": "The order of banking operations and denominations cannot be reliably seen on video.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p36_exchange_authenticity",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, Параграф 3 — Порядок осуществления кассовых операций по выдаче, размену и обмену наличных денег",
+        "point": "36",
+        "text_ru": "При осуществлении операции по размену, обмену наличных денег кассовый работник проверяет платежность и подлинность наличных денег в соответствии с пунктами 57 и 58 Правил.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_exchange",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "During exchange operations the cashier checks the solvency and authenticity of banknotes according to points 57 and 58 of the Rules.",
+      "expected_normal_behavior": [],
+      "violation_indicators": [],
+      "do_not_flag_if": [],
+      "related_events": [
+        "banknote_authenticity_check"
+      ],
+      "violation_type": "authenticity_check_not_observed",
+      "explanation_ru": null,
+      "disabled_reason": "A missing authenticity check cannot be proven from video: points 57-58 refer to external rules (Rules No. 230 and foreign currency rules) and the check is done by equipment.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p31_2_signatures",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, Параграф 3 — Порядок осуществления кассовых операций по выдаче, размену и обмену наличных денег",
+        "point": "31.2",
+        "text_ru": "Кассовый работник банка проверяет наличие подписи клиента и при участии операционного работника наличие его подписи, сверяет их с имеющимися образцами подписей",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_issuance",
+      "actors": [
+        "cashier",
+        "client",
+        "operations_employee"
+      ],
+      "llm_description": "The cashier checks the client's signature (and the operations employee's signature) and compares them with signature samples.",
+      "expected_normal_behavior": [],
+      "violation_indicators": [],
+      "do_not_flag_if": [],
+      "related_events": [
+        "document_signed"
+      ],
+      "violation_type": "signature_check_not_observed",
+      "explanation_ru": null,
+      "disabled_reason": "Comparing signatures with samples is an internal check that is not visible from a desk camera.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p37_end_of_day",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, Параграф 3 — Порядок осуществления кассовых операций по выдаче, размену и обмену наличных денег",
+        "point": "37",
+        "text_ru": "Остаток наличных денег после рабочего дня кассовый работник пересчитывает, сортирует, упаковывает и сдает с расходными кассовыми документами заведующему кассой или лицу, осуществляющему функции заведующего кассой, для проверки подшивки в кассовые документы дня в порядке, установленном внутренними документами банка.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "end_of_day_handover",
+      "actors": [
+        "cashier",
+        "head_of_cash"
+      ],
+      "llm_description": "At the end of the working day the cashier counts, sorts and packs the remaining cash and hands it with expense documents to the head of cash.",
+      "expected_normal_behavior": [],
+      "violation_indicators": [],
+      "do_not_flag_if": [],
+      "related_events": [
+        "cash_sorted_or_packed",
+        "cashier_counts_cash",
+        "second_employee_present"
+      ],
+      "violation_type": "end_of_day_cash_handover_issue",
+      "explanation_ru": null,
+      "disabled_reason": "Depends on internal bank documents and on whether the dataset videos contain end-of-day handover (see also points 56, 64-65). Check the dataset first.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p74_vault_storage_after_record",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, Параграф 8 — Порядок осуществления кассовых операций по хранению наличных денег",
+        "point": "74",
+        "text_ru": "Наличные деньги хранятся в кладовой и/или сейфовой комнате после учёта в автоматизированной цифровой системе в соответствии с внутренними документами банка.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "vault_storage",
+      "actors": [
+        "cash_custodian"
+      ],
+      "llm_description": "Cash is stored in the vault or safe room only after it was recorded in the automated digital system.",
+      "expected_normal_behavior": [],
+      "violation_indicators": [],
+      "do_not_flag_if": [],
+      "related_events": [
+        "cash_placed_in_storage",
+        "person_enters_vault"
+      ],
+      "violation_type": "vault_storage_before_recording",
+      "explanation_ru": null,
+      "disabled_reason": "Recording in the digital system cannot be seen on video.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p75_vault_access",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, Параграф 8 — Порядок осуществления кассовых операций по хранению наличных денег",
+        "point": "75",
+        "text_ru": "Вход в кладовую и (или) сейфовую комнату разрешается лицам, ответственным за сохранность наличных денег, а также лицам на основании распорядительного документа руководителя банка при сопровождении лиц, ответственных за сохранность наличных денег",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "vault_access",
+      "actors": [
+        "cash_custodian",
+        "other_person"
+      ],
+      "llm_description": "Only persons responsible for cash safety may enter the vault, or other persons with a written order, accompanied by a responsible person.",
+      "expected_normal_behavior": [],
+      "violation_indicators": [],
+      "do_not_flag_if": [],
+      "related_events": [
+        "person_enters_vault"
+      ],
+      "violation_type": "unauthorized_vault_entry",
+      "explanation_ru": null,
+      "disabled_reason": "Authorization of a person (orders, responsibility) cannot be established from video. Enable only if the dataset has clear vault videos.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p78_vault_check",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 8 — Порядок осуществления кассовых операций по хранению наличных денег",
+        "point": "78",
+        "text_ru": "Перед закрытием кладовой и (или) сейфовой комнаты лица, ответственные за сохранность наличных денег, проверяют соответствие фактического наличия в кладовой и (или) сейфовой комнате наличных денег остатку кассы и данным бухгалтерского учета.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "vault_closing",
+      "actors": [
+        "cash_custodian"
+      ],
+      "llm_description": "Before closing the vault, responsible persons check that the actual cash matches the cash balance and accounting data.",
+      "expected_normal_behavior": [],
+      "violation_indicators": [],
+      "do_not_flag_if": [],
+      "related_events": [
+        "cashier_counts_cash",
+        "person_enters_vault"
+      ],
+      "violation_type": "vault_balance_check_not_observed",
+      "explanation_ru": null,
+      "disabled_reason": "Reconciliation with accounting data is not visible on video.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p22_leave_workplace",
+      "enabled_for_mvp": false,
+      "visual_observability": "high",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "22",
+        "text_ru": "Кассовому работнику не допускается покидать рабочее место до окончания обслуживания клиента.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "client_service",
+      "actors": [
+        "cashier",
+        "client"
+      ],
+      "llm_description": "The cashier must not leave the workplace until the client service is finished. Look for a cashier who stands up and walks away from the desk or window while the client is still at the window, or while cash and documents of the current operation are still on the desk.",
+      "expected_normal_behavior": [
+        "The cashier stays at the desk from the moment the client arrives until the operation is completed and the client leaves."
+      ],
+      "violation_indicators": [
+        "The cashier walks away from the desk or leaves the cash area while the client is still waiting at the window.",
+        "The cashier leaves while cash or documents of the current operation lie on the desk.",
+        "The cashier goes out of the camera view for a noticeable time in the middle of serving a client."
+      ],
+      "do_not_flag_if": [
+        "No client is at the window (nobody is being served).",
+        "The operation is clearly finished (documents given, client walked away).",
+        "The cashier only leans or turns within arm's reach of the desk.",
+        "You cannot see whether the client is still being served."
+      ],
+      "related_events": [
+        "client_at_window",
+        "cashier_leaves_workplace",
+        "cashier_returns_to_workplace",
+        "storage_open_unattended",
+        "client_leaves_window"
+      ],
+      "violation_type": "cashier_left_workplace_during_service",
+      "explanation_ru": "Кассовому работнику не допускается покидать рабочее место до окончания обслуживания клиента. На видео наблюдается: {observation}. Требует проверки по п. 22 Правил (Постановление НБРК № 231).",
+      "disabled_reason": "No example among the 20 violation videos reviewed so far (X-4 ... X-47). Enabling it risks false positives on videos without violations. Re-enable if the 2 remaining violation videos or the jury data show it.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p12_personal_items",
+      "enabled_for_mvp": true,
+      "visual_observability": "medium",
+      "evaluation_scope": "segment",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 1 — Организация работы по осуществлению кассовых операций",
+        "point": "12",
+        "text_ru": "Хранение личных вещей, наличных денег и ценностей работников банка осуществляется вне кассового узла в порядке, установленном внутренними документами банка. Допускается внос работниками банка в кассовый узел лекарственных средств, медицинских изделий и средств связи, не имеющих функции фото и видео фиксации.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_area_rules",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "Personal belongings, personal money and valuables of bank employees must be kept outside the cash area. Only medicines, medical devices and communication devices WITHOUT photo/video function are allowed inside. Look for a personal handbag, backpack, jacket or coat put on the cashier's desk, a smartphone, and food or drinks at the cash desk.",
+      "expected_normal_behavior": [
+        "The cashier desk has only work items (cash, documents, counting machine, stamp)."
+      ],
+      "violation_indicators": [
+        "The cashier puts a personal handbag, backpack or jacket on the desk or in the cash area.",
+        "A cup with a drink, food or a small container (candy, gum) is taken out and used at the cash desk.",
+        "A smartphone lies on the desk or is used by the cashier in the cash area.",
+        "The cashier puts cash into a personal pocket, bag or wallet."
+      ],
+      "do_not_flag_if": [
+        "You cannot tell whether the area belongs to the cash area.",
+        "A small container may be a medicine (medicines are allowed).",
+        "The device may be a push-button phone or a medical device.",
+        "The item is clearly work-related (cash bag, document folder)."
+      ],
+      "related_events": [
+        "personal_item_in_cash_area",
+        "phone_in_use"
+      ],
+      "violation_type": "personal_items_in_cash_area",
+      "explanation_ru": "Личные вещи, наличные деньги и ценности работников банка должны храниться вне кассового узла; средства связи с функцией фото- и видеофиксации вносить нельзя. На видео наблюдается: {observation}. Требует проверки по п. 12 Правил (Постановление НБРК № 231).",
+      "disabled_reason": null,
+      "dataset_examples": [
+        "X-40",
+        "X-46"
+      ],
+      "norm_link_strength": "direct for bags, clothes and phones; indirect for food and drinks (the point says 'personal belongings' and does not list food)"
+    },
+    {
+      "id": "kz231_p19_1_identification_reception",
+      "enabled_for_mvp": false,
+      "visual_observability": "high",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "19.1",
+        "text_ru": "Кассовый работник банка осуществляет следующие действия: 1) проводит визуальную идентификацию клиента, вносящего наличные деньги, с документом, удостоверяющим его личность, либо данными, подтверждающими (идентифицирующими) личность клиента, полученными посредством сервиса цифровых документов;",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_reception",
+      "actors": [
+        "cashier",
+        "client"
+      ],
+      "llm_description": "When a client deposits cash, the cashier must visually identify the client using an ID document (or digital document data). Look for the client giving an ID-like card or showing a phone, and the cashier looking at it and at the client, during a deposit.",
+      "expected_normal_behavior": [
+        "The client gives an ID-like document or shows a phone with digital documents.",
+        "The cashier examines it and compares it with the client."
+      ],
+      "violation_indicators": [
+        "The cash is taken from the client and the whole deposit is visible, and no ID document is shown or examined at any time."
+      ],
+      "do_not_flag_if": [
+        "Identification may happen before the video starts.",
+        "The client shows a phone and you cannot see its screen (digital documents are allowed).",
+        "The operation is an issuance (see kz231_p31_1_identification)."
+      ],
+      "related_events": [
+        "id_document_handed",
+        "id_document_examined",
+        "cash_taken_from_client"
+      ],
+      "violation_type": "client_identification_not_observed_on_deposit",
+      "explanation_ru": "Кассовый работник должен провести визуальную идентификацию клиента, вносящего наличные деньги. На видео наблюдается: {observation}. Требует проверки по пп. 19.1 Правил (Постановление НБРК № 231).",
+      "disabled_reason": "No example among the 20 violation videos reviewed so far (X-4 ... X-47). Enabling it risks false positives on videos without violations. Re-enable if the 2 remaining violation videos or the jury data show it.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p19_5_sign_stamp_reception",
+      "enabled_for_mvp": false,
+      "visual_observability": "medium",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "19.5",
+        "text_ru": "подписывает все экземпляры приходного кассового документа, проставляет штамп кассового работника банка на всех экземплярах приходного кассового документа;",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_reception",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "During a deposit the cashier signs every copy of the cash receipt document and puts the cashier stamp on every copy. Look for the cashier signing paper documents and pressing a stamp.",
+      "expected_normal_behavior": [
+        "The cashier signs the paper documents and presses a stamp on them."
+      ],
+      "violation_indicators": [
+        "The whole deposit is visible and the cashier never signs or stamps any document.",
+        "The cashier signs but no stamping is visible (report only if the stamp is normally visible in this camera view)."
+      ],
+      "do_not_flag_if": [
+        "Signing or stamping may happen outside the visible part.",
+        "The camera angle hides the documents.",
+        "The operation may use electronic documents."
+      ],
+      "related_events": [
+        "document_signed",
+        "stamp_applied",
+        "cash_taken_from_client"
+      ],
+      "violation_type": "receipt_document_not_signed_or_stamped",
+      "explanation_ru": "Кассовый работник должен подписать все экземпляры приходного кассового документа и проставить штамп. На видео наблюдается: {observation}. Требует проверки по пп. 19.5 Правил (Постановление НБРК № 231).",
+      "disabled_reason": "No example among the 20 violation videos reviewed so far (X-4 ... X-47). Enabling it risks false positives on videos without violations. Re-enable if the 2 remaining violation videos or the jury data show it.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p19_6_document_reception",
+      "enabled_for_mvp": false,
+      "visual_observability": "medium",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "19.6",
+        "text_ru": "выдает клиенту документ, подтверждающий проведение кассовой операции по приему наличных денег.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_reception",
+      "actors": [
+        "cashier",
+        "client"
+      ],
+      "llm_description": "At the end of a deposit the cashier must give the client a document confirming the operation. Look for the cashier handing a paper to the client at the end of a deposit.",
+      "expected_normal_behavior": [
+        "After the deposit is processed, the cashier hands a paper document to the client."
+      ],
+      "violation_indicators": [
+        "The client leaves the window and no document is handed to the client at any time during the visible deposit."
+      ],
+      "do_not_flag_if": [
+        "The video ends before the operation is finished.",
+        "The client may receive an electronic confirmation.",
+        "You cannot see the client's hands."
+      ],
+      "related_events": [
+        "cash_taken_from_client",
+        "document_handed_to_client",
+        "client_leaves_window"
+      ],
+      "violation_type": "deposit_confirmation_document_not_given",
+      "explanation_ru": "Кассовый работник должен выдать клиенту документ, подтверждающий проведение кассовой операции по приему наличных денег. На видео наблюдается: {observation}. Требует проверки по пп. 19.6 Правил (Постановление НБРК № 231).",
+      "disabled_reason": "No example among the 20 violation videos reviewed so far (X-4 ... X-47). Enabling it risks false positives on videos without violations. Re-enable if the 2 remaining violation videos or the jury data show it.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p19_2_reception_authenticity",
+      "enabled_for_mvp": true,
+      "visual_observability": "medium",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "19.2",
+        "text_ru": "принимает банкноты с полистным пересчетом, монеты с пересчетом по кружкам с проверкой на подлинность и платежность наличных денег в соответствии с пунктами 57 и 58 Правил;",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "direct",
+      "related_norms": [
+        {
+          "point": "57",
+          "text_ru": "Банк при осуществлении кассовых операций проверяет платежность банкнот и монет в соответствии с Правилами № 230.",
+          "link_strength": "direct",
+          "comment": "Rules No. 230 define the actual checks (point numbers must be added from that act)."
+        },
+        {
+          "point": "9",
+          "text_ru": "Банк обеспечивает наличие специальных оборудований для определения платежности и подлинности банкнот при осуществлении кассовых операций.",
+          "link_strength": "indirect",
+          "comment": "Explains why the detector is on the desk."
+        }
+      ],
+      "operation": "cash_reception",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "After accepting cash the cashier must check authenticity and solvency of the banknotes. Look for a cashier who counts the cash on a counting machine, while a UV lamp or detector stands on the desk and is not used afterwards to inspect the banknotes.",
+      "expected_normal_behavior": [
+        "After the counting machine, the cashier inspects the banknotes under the lamp or detector."
+      ],
+      "violation_indicators": [
+        "The cash is counted on a machine and a lamp or detector on the desk is never used.",
+        "The cashier does not look closely at the banknotes at any time after counting."
+      ],
+      "do_not_flag_if": [
+        "No lamp or detector is visible on the desk.",
+        "The check may happen outside the visible part.",
+        "You cannot tell that the objects are banknotes."
+      ],
+      "related_events": [
+        "cashier_counts_cash",
+        "banknote_authenticity_check"
+      ],
+      "violation_type": "authenticity_check_not_performed",
+      "explanation_ru": "При приёме наличных денег кассовый работник проверяет их подлинность и платежность в соответствии с пунктами 57 и 58 Правил. На видео наблюдается: {observation}. Требует проверки по пп. 19.2 и 57 Правил (Постановление НБРК № 231).",
+      "dataset_examples": [
+        "X-44"
+      ],
+      "disabled_reason": null,
+      "timecode_hint": "Report the moment the cashier finishes counting without using the lamp or detector."
+    },
+    {
+      "id": "kz231_p15_transfer_between_cashiers",
+      "enabled_for_mvp": false,
+      "visual_observability": "medium",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 1 — Организация работы по осуществлению кассовых операций",
+        "point": "15",
+        "text_ru": "Передача наличных денег между кассовыми работниками банка отражается в документе учета принятых и выданных наличных денег и ценностей (далее в пункте: перечень сведений — дата, ФИО, должность и подпись передающего, сумма цифрами и прописью, количество и вид, ФИО, должность и подпись получающего).",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_transfer",
+      "actors": [
+        "cashier",
+        "other_cashier"
+      ],
+      "llm_description": "Cash passed between two bank employees must be recorded in a cash accounting document with signatures of both. Look for cash passed from one employee to another without any document being signed.",
+      "expected_normal_behavior": [
+        "Cash is passed between two employees and both sign a document."
+      ],
+      "violation_indicators": [
+        "Cash or a cash bag is passed between employees and no signing is visible at any time."
+      ],
+      "do_not_flag_if": [
+        "Signing may happen outside the visible part.",
+        "You cannot tell that it is cash."
+      ],
+      "related_events": [
+        "cash_transferred_between_employees",
+        "document_signed",
+        "second_employee_present"
+      ],
+      "violation_type": "cash_transfer_not_documented",
+      "explanation_ru": null,
+      "disabled_reason": "Candidate. Enable only if the violation videos of the dataset show cash passed between employees (checked by participant #1).",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p21_separate_documents",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "21",
+        "text_ru": "В случае если клиент вносит наличные деньги в кассу банка по нескольким приходным кассовым документам, кассовый работник принимает наличные деньги по каждому приходному кассовому документу отдельно.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "cash_reception",
+      "actors": [
+        "cashier",
+        "client"
+      ],
+      "llm_description": "If a client deposits cash under several receipt documents, the cashier accepts the cash separately for each document.",
+      "expected_normal_behavior": [],
+      "violation_indicators": [],
+      "do_not_flag_if": [],
+      "related_events": [
+        "cash_taken_from_client",
+        "cashier_counts_cash"
+      ],
+      "violation_type": "cash_not_accepted_separately_per_document",
+      "explanation_ru": null,
+      "disabled_reason": "Candidate. The number of receipt documents is not visible on video. Enable only if the dataset shows a clear case (e.g. several piles mixed together).",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p59_suspicious_banknotes",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 5 — Порядок работы с сомнительными, неплатежными, имеющими признаки подделки наличными деньгами",
+        "point": "59",
+        "text_ru": "При обнаружении сомнительных банкнот и монет кассовый работник в присутствии клиента и заведующего кассой или лица, осуществляющего его функции, составляет акт о приеме на экспертизу сомнительных банкнот и монет в двух экземплярах (текст пункта сокращён).",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "operation": "suspicious_banknotes",
+      "actors": [
+        "cashier",
+        "client",
+        "head_of_cash"
+      ],
+      "llm_description": "When suspicious banknotes are found, the cashier draws up an act in the presence of the client and the head of cash.",
+      "expected_normal_behavior": [],
+      "violation_indicators": [],
+      "do_not_flag_if": [],
+      "related_events": [
+        "banknote_authenticity_check",
+        "second_employee_present",
+        "document_signed"
+      ],
+      "violation_type": "suspicious_banknotes_act_not_observed",
+      "explanation_ru": null,
+      "disabled_reason": "Candidate. Suspicious banknotes cannot be recognized from video. Enable only if the dataset contains such an event.",
+      "dataset_examples": []
+    },
+    {
+      "id": "kz231_p20_prev_client_cash_on_desk",
+      "enabled_for_mvp": true,
+      "visual_observability": "high",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "20 (часть 2)",
+        "text_ru": "На рабочем месте кассового работника находятся наличные деньги клиента. Все ранее принятые наличные деньги хранятся в специальных устройствах, находящихся на рабочем месте кассового работника, закрывающихся на ключ, предназначенных для хранения наличных денег (металлический шкаф, сейф, тележка, ящики стола, тумба).",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "direct",
+      "related_norms": [
+        {
+          "point": "14",
+          "text_ru": "Банк обеспечивает ... распределение их должностных обязанностей, исключающее конфликт интересов и условия его возникновения, совершение хищения наличных денег и ценностей и других противоправных действий. (текст пункта сокращён)",
+          "link_strength": "indirect",
+          "comment": "Cash visible to the next visitor creates conditions for theft; the Rules require the bank to exclude such conditions."
+        },
+        {
+          "point": "16",
+          "text_ru": "Банк обеспечивает осуществление кассовых операций в рамках системы управления рисками и внутреннего контроля.",
+          "link_strength": "indirect",
+          "comment": "General requirement for risk management and internal control."
+        }
+      ],
+      "operation": "cash_reception",
+      "actors": [
+        "cashier",
+        "client",
+        "next_client"
+      ],
+      "llm_description": "Only the cash of the client who is being served right now may lie on the cashier's desk. All cash that was already accepted must be put into a lockable storage (safe, cabinet, drawer). Look for banknotes that stay on the desk after the client has left, especially when the next visitor enters or is being served while that cash is still visible.",
+      "expected_normal_behavior": [
+        "After counting, the cashier puts the accepted cash into the safe while the client is still in the room, and only then finishes the service (for example returns the ID or gives the document).",
+        "The desk has no cash on it when the next visitor sits down."
+      ],
+      "violation_indicators": [
+        "Banknotes or a stack of cash remain on the desk after the client has left.",
+        "A new visitor enters or sits down while cash of the previous client is still visible on the desk.",
+        "The cashier starts serving the next visitor and takes new cash while the previous client's cash still lies on the desk.",
+        "The cashier finishes the service (returns ID, gives documents) without putting the counted cash into the safe."
+      ],
+      "do_not_flag_if": [
+        "Cash is on the desk but its owner is still being served and the counting is in progress.",
+        "The cash is inside a closed counting machine or locked storage.",
+        "You cannot tell that the objects are banknotes."
+      ],
+      "related_events": [
+        "client_leaves_window",
+        "cash_left_on_desk",
+        "next_client_arrives",
+        "cash_placed_in_storage"
+      ],
+      "violation_type": "previous_client_cash_left_on_desk",
+      "explanation_ru": "На рабочем месте кассового работника должны находиться только наличные деньги обслуживаемого клиента, а все ранее принятые наличные деньги хранятся в закрывающихся на ключ устройствах. На видео наблюдается: {observation}. Требует проверки по п. 20 Правил (Постановление НБРК № 231).",
+      "dataset_examples": [
+        "X-4",
+        "X-38",
+        "X-47"
+      ],
+      "disabled_reason": null,
+      "timecode_hint": "Report the moment when the next visitor enters or starts being served while the previous cash is still on the desk."
+    },
+    {
+      "id": "kz231_p20_cash_left_unattended",
+      "enabled_for_mvp": true,
+      "visual_observability": "high",
+      "evaluation_scope": "segment",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "20 (часть 2)",
+        "text_ru": "На рабочем месте кассового работника находятся наличные деньги клиента. Все ранее принятые наличные деньги хранятся в специальных устройствах, находящихся на рабочем месте кассового работника, закрывающихся на ключ, предназначенных для хранения наличных денег (металлический шкаф, сейф, тележка, ящики стола, тумба).",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "direct",
+      "related_norms": [
+        {
+          "point": "14",
+          "text_ru": "Банк обеспечивает ... распределение их должностных обязанностей, исключающее конфликт интересов и условия его возникновения, совершение хищения наличных денег и ценностей и других противоправных действий. (текст пункта сокращён)",
+          "link_strength": "indirect",
+          "comment": "Unattended cash creates conditions for theft."
+        },
+        {
+          "point": "24",
+          "text_ru": "Кассовые операции по приему наличных денег клиента от подразделения инкассации банка или инкассаторской организации осуществляется кассовым работником банка на основании препроводительного документа, соответствующего требованиям пункта 106 Правил. Кассовый работник: 1) проверяет указание на препроводительном документе необходимых сведений, предусмотренных пунктом 106 Правил; 2) осуществляет регистрацию суммы принимаемых наличных денег в порядке, установленном внутренними документами банка; 3) проверяет целостность сумки; 4) проверяет правильность пломбирования сумки.",
+          "link_strength": "indirect",
+          "comment": "If the bag came from incassation, the cashier has additional duties for it (check, register, count)."
+        }
+      ],
+      "operation": "cash_storage_at_workplace",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "Cash or a cash bag must not stay on the desk when the cashier leaves the room. Look for a banded bundle of banknotes or a cash bag (for example a green bag) that remains on the desk after the cashier walks out.",
+      "expected_normal_behavior": [
+        "Before leaving, the cashier puts the cash into the safe or another locked storage."
+      ],
+      "violation_indicators": [
+        "A banded bundle of banknotes lies on the desk and the cashier leaves the room.",
+        "A cash bag (opened or sealed) is left on the desk and the cashier leaves the room.",
+        "Cash is left on the desk while the cashier is out of the camera view."
+      ],
+      "do_not_flag_if": [
+        "The cashier is still at the desk or within arm's reach.",
+        "The cash is in a closed counting machine, a safe or a locked drawer.",
+        "You cannot tell that the objects are cash."
+      ],
+      "related_events": [
+        "cash_left_on_desk",
+        "cash_bag_left_on_desk",
+        "cashier_leaves_workplace"
+      ],
+      "violation_type": "cash_left_unattended_on_desk",
+      "explanation_ru": "Принятые наличные деньги должны храниться в закрывающихся на ключ устройствах на рабочем месте кассового работника. На видео наблюдается: {observation}. Требует проверки по п. 20 Правил (Постановление НБРК № 231).",
+      "dataset_examples": [
+        "X-26",
+        "X-15"
+      ],
+      "disabled_reason": null,
+      "timecode_hint": "Report the moment the cashier leaves the room while the cash or bag is still on the desk."
+    },
+    {
+      "id": "kz231_p20_safe_left_open",
+      "enabled_for_mvp": true,
+      "visual_observability": "medium",
+      "evaluation_scope": "segment",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "20 (часть 2)",
+        "text_ru": "На рабочем месте кассового работника находятся наличные деньги клиента. Все ранее принятые наличные деньги хранятся в специальных устройствах, находящихся на рабочем месте кассового работника, закрывающихся на ключ, предназначенных для хранения наличных денег (металлический шкаф, сейф, тележка, ящики стола, тумба).",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "indirect",
+      "related_norms": [
+        {
+          "point": "14",
+          "text_ru": "Банк обеспечивает ... распределение их должностных обязанностей, исключающее конфликт интересов и условия его возникновения, совершение хищения наличных денег и ценностей и других противоправных действий. (текст пункта сокращён)",
+          "link_strength": "indirect",
+          "comment": "Open safe with cash creates conditions for theft."
+        },
+        {
+          "point": "16",
+          "text_ru": "Банк обеспечивает осуществление кассовых операций в рамках системы управления рисками и внутреннего контроля.",
+          "link_strength": "indirect",
+          "comment": "Risk management and internal control."
+        },
+        {
+          "point": "80",
+          "text_ru": "Порядок хранения, выдачи и передачи ценностей, печатей, ключей и кодов от электронных и механических замков кладовой и (или) сейфовой комнаты, пломбираторов, клише, именных штампов и ключей от специальных устройств, находящихся на рабочем месте кассового работника, предназначенных для хранения наличных денег (металлический шкаф, сейф, тележка, ящики стола), определяется внутренними документами банка, обеспечивающими исключение их несанкционированного использования.",
+          "link_strength": "indirect",
+          "comment": "Keys and storage devices at the cashier workplace must be protected from unauthorized use."
+        }
+      ],
+      "operation": "cash_storage_at_workplace",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "A safe with cash inside must not stay open and unattended. Look for an open safe door while the cashier works at the desk with the back turned to it, especially when the safe stands close to the room entrance.",
+      "expected_normal_behavior": [
+        "The cashier takes cash from the safe and closes the safe, or stays right at the safe while it is open.",
+        "The safe is closed and locked when the cashier moves away from it."
+      ],
+      "violation_indicators": [
+        "The safe door stays open while the cashier sits at the desk behind or beside it.",
+        "The safe is open near the room entrance and a visitor could reach it.",
+        "The safe stays open while the cashier leaves the room."
+      ],
+      "do_not_flag_if": [
+        "The cashier stands at the safe and is putting in or taking out cash.",
+        "The safe has been open for only a few seconds during an active action.",
+        "You cannot see whether the safe is open."
+      ],
+      "related_events": [
+        "safe_door_open",
+        "storage_open_unattended",
+        "cashier_leaves_workplace"
+      ],
+      "violation_type": "safe_left_open_while_working",
+      "explanation_ru": "Наличные деньги должны храниться в закрывающихся на ключ устройствах. На видео наблюдается: {observation}. Требует проверки по п. 20 Правил (Постановление НБРК № 231).",
+      "dataset_examples": [
+        "X-20"
+      ],
+      "disabled_reason": null,
+      "timecode_hint": "Report the moment the cashier sits down or moves away while the safe door is still open."
+    },
+    {
+      "id": "kz231_p80_safe_key_left",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "segment",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 8 — Порядок осуществления кассовых операций по хранению наличных денег",
+        "point": "80",
+        "text_ru": "Порядок хранения, выдачи и передачи ценностей, печатей, ключей и кодов от электронных и механических замков кладовой и (или) сейфовой комнаты, пломбираторов, клише, именных штампов и ключей от специальных устройств, находящихся на рабочем месте кассового работника, предназначенных для хранения наличных денег (металлический шкаф, сейф, тележка, ящики стола), определяется внутренними документами банка, обеспечивающими исключение их несанкционированного использования.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "direct",
+      "related_norms": [
+        {
+          "point": "20 (часть 2)",
+          "text_ru": "На рабочем месте кассового работника находятся наличные деньги клиента. Все ранее принятые наличные деньги хранятся в специальных устройствах, находящихся на рабочем месте кассового работника, закрывающихся на ключ, предназначенных для хранения наличных денег (металлический шкаф, сейф, тележка, ящики стола, тумба).",
+          "link_strength": "indirect",
+          "comment": "A safe locked with the key left in it is not effectively locked."
+        }
+      ],
+      "operation": "keys_and_stamps",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "The key of a safe at the cashier workplace must not be left in the lock when the cashier leaves. Look for a key or key ring that remains in the safe door after the cashier locks it and walks away.",
+      "expected_normal_behavior": [
+        "The cashier locks the safe, takes the key and leaves with it."
+      ],
+      "violation_indicators": [
+        "A key or key ring is visible in the lock of the safe after the cashier has locked it and left the room.",
+        "The cashier steps away from the safe and the hand is empty (no key taken). Use only together with a visible key."
+      ],
+      "do_not_flag_if": [
+        "You cannot see the key clearly.",
+        "The cashier is still in the room."
+      ],
+      "related_events": [
+        "key_left_in_lock",
+        "cashier_leaves_workplace"
+      ],
+      "violation_type": "safe_key_left_in_lock",
+      "explanation_ru": "Ключи от специальных устройств для хранения наличных денег на рабочем месте кассового работника должны быть защищены от несанкционированного использования. На видео наблюдается: {observation}. Требует проверки по п. 80 Правил (Постановление НБРК № 231).",
+      "dataset_examples": [
+        "X-22"
+      ],
+      "disabled_reason": "A small key in a lock is very hard to see for a 2B model (even for a human it was noticed only by the open palm). Enable for experiments only, after testing on X-22 and its compliant counterpart."
+    },
+    {
+      "id": "kz231_p80_stamps_unattended",
+      "enabled_for_mvp": true,
+      "visual_observability": "medium",
+      "evaluation_scope": "segment",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 8 — Порядок осуществления кассовых операций по хранению наличных денег",
+        "point": "80",
+        "text_ru": "Порядок хранения, выдачи и передачи ценностей, печатей, ключей и кодов от электронных и механических замков кладовой и (или) сейфовой комнаты, пломбираторов, клише, именных штампов и ключей от специальных устройств, находящихся на рабочем месте кассового работника, предназначенных для хранения наличных денег (металлический шкаф, сейф, тележка, ящики стола), определяется внутренними документами банка, обеспечивающими исключение их несанкционированного использования.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "direct",
+      "related_norms": [
+        {
+          "point": "14",
+          "text_ru": "Банк обеспечивает ... распределение их должностных обязанностей, исключающее конфликт интересов и условия его возникновения, совершение хищения наличных денег и ценностей и других противоправных действий. (текст пункта сокращён)",
+          "link_strength": "indirect",
+          "comment": "Unattended stamps can be misused."
+        }
+      ],
+      "operation": "keys_and_stamps",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "Stamps and seals of the cashier must not stay lying on the desk when the cashier leaves. Look for stamp devices standing on the desk while the cashier stands up and walks out of the room.",
+      "expected_normal_behavior": [
+        "The cashier keeps stamps in a drawer or takes them away when leaving the desk."
+      ],
+      "violation_indicators": [
+        "One or more stamps stay on the desk and the cashier leaves the room.",
+        "Stamps lie next to open documents while the cashier is out of the camera view."
+      ],
+      "do_not_flag_if": [
+        "The cashier is still at the desk.",
+        "You cannot tell that the objects are stamps."
+      ],
+      "related_events": [
+        "stamp_left_on_desk",
+        "cashier_leaves_workplace"
+      ],
+      "violation_type": "stamps_left_unattended_on_desk",
+      "explanation_ru": "Порядок хранения печатей, штампов и ключей на рабочем месте кассового работника должен исключать их несанкционированное использование. На видео наблюдается: {observation}. Требует проверки по п. 80 Правил (Постановление НБРК № 231).",
+      "dataset_examples": [
+        "X-24"
+      ],
+      "disabled_reason": null,
+      "timecode_hint": "Report the moment the cashier leaves while the stamps are still on the desk."
+    },
+    {
+      "id": "kz231_p5_cash_room_door_open",
+      "enabled_for_mvp": true,
+      "visual_observability": "medium",
+      "evaluation_scope": "segment",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 1 — Организация работы по осуществлению кассовых операций",
+        "point": "5",
+        "text_ru": "Банк для осуществления кассовых операций оборудует кассовый узел – систему специально оборудованных помещений, предназначенных для проведения кассовых операций и операций по инкассации банкнот, монет и ценностей, устройство которого определяется Правилами организации охраны и устройства помещений (постановление Правления НБРК от 24.02.2020 № 14, рег. № 20075). (текст пункта сокращён)",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "external_act_needed",
+      "related_norms": [
+        {
+          "point": "75",
+          "text_ru": "Вход в кладовую и (или) сейфовую комнату разрешается лицам, ответственным за сохранность наличных денег, а также лицам на основании распорядительного документа руководителя банка при сопровождении лиц, ответственных за сохранность наличных денег",
+          "link_strength": "indirect",
+          "comment": "Applies only if the room is a vault or safe room (кладовая / сейфовая комната). Not confirmed for a cashier office."
+        }
+      ],
+      "operation": "cash_room_security",
+      "actors": [
+        "cashier",
+        "unknown_person"
+      ],
+      "llm_description": "The cash room is a specially equipped room and must be protected from outsiders. Look for a cashier who enters the room and leaves the door open behind, and especially for an unknown person who walks into the room through the open door.",
+      "expected_normal_behavior": [
+        "The cashier closes the door after entering."
+      ],
+      "violation_indicators": [
+        "The cashier enters the room and the door stays open behind.",
+        "An unknown person enters the room through the open door.",
+        "The door stays open while cash or a safe is in the room."
+      ],
+      "do_not_flag_if": [
+        "The door is closed or closes by itself behind the cashier.",
+        "The person entering is clearly the cashier or an employee who works there.",
+        "You cannot see the door."
+      ],
+      "related_events": [
+        "room_door_left_open",
+        "unknown_person_enters_room"
+      ],
+      "violation_type": "cash_room_door_left_open",
+      "explanation_ru": "Помещения кассового узла должны быть специально оборудованы, их устройство определяется Правилами организации охраны и устройства помещений (постановление НБРК от 24.02.2020 № 14). На видео наблюдается: {observation}. Требует проверки по п. 5 Правил (Постановление НБРК № 231) и соответствующему пункту Правил № 14.",
+      "dataset_examples": [
+        "X-30",
+        "X-32",
+        "X-33"
+      ],
+      "disabled_reason": null,
+      "timecode_hint": "If an unknown person enters, report the moment of entering (this is how X-30 was labeled). If nobody enters, report the moment the door is left open. Check the real labels in the Excel for X-32 and X-33."
+    },
+    {
+      "id": "kz231_computer_left_unlocked",
+      "enabled_for_mvp": true,
+      "visual_observability": "medium",
+      "evaluation_scope": "segment",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 1 — Организация работы по осуществлению кассовых операций",
+        "point": "10-1, 16",
+        "text_ru": "Кассовые операции с использованием цифровых документов осуществляются в соответствии с требованиями Цифрового кодекса Республики Казахстан и Закона Республики Казахстан «О кибербезопасности».",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "external_act_needed",
+      "related_norms": [
+        {
+          "point": "16",
+          "text_ru": "Банк обеспечивает осуществление кассовых операций в рамках системы управления рисками и внутреннего контроля.",
+          "link_strength": "indirect",
+          "comment": "General requirement for internal control; no point in Resolution No. 231 mentions computer screens directly."
+        }
+      ],
+      "operation": "workplace_security",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "A work computer must not be left switched on and open when the cashier leaves the room. Look for a computer or laptop screen that stays on (work content visible) after the cashier walks out, or after the cashier switches off the light and leaves.",
+      "expected_normal_behavior": [
+        "The cashier locks the screen or switches the computer off before leaving."
+      ],
+      "violation_indicators": [
+        "The cashier leaves the room and the computer or laptop screen stays on and open.",
+        "The room light is switched off but the laptop stays open and on."
+      ],
+      "do_not_flag_if": [
+        "The cashier is still at the desk.",
+        "The cashier steps out of the view only for a moment and stays within reach.",
+        "You cannot tell whether the screen is on."
+      ],
+      "related_events": [
+        "computer_unattended_unlocked",
+        "cashier_leaves_workplace"
+      ],
+      "violation_type": "computer_left_on_and_unattended",
+      "explanation_ru": "Кассовые операции с использованием цифровых документов осуществляются в соответствии с Цифровым кодексом и Законом «О кибербезопасности»; операции осуществляются в рамках системы управления рисками и внутреннего контроля. На видео наблюдается: {observation}. Требует проверки по пп. 10-1 и 16 Правил (Постановление НБРК № 231) и внутренним документам банка.",
+      "dataset_examples": [
+        "X-28",
+        "X-11"
+      ],
+      "disabled_reason": null,
+      "timecode_hint": "Report the moment the cashier leaves while the screen is still on."
+    },
+    {
+      "id": "kz231_p5_room_not_locked_on_leaving",
+      "enabled_for_mvp": false,
+      "visual_observability": "low",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 1 — Организация работы по осуществлению кассовых операций",
+        "point": "5",
+        "text_ru": "Банк для осуществления кассовых операций оборудует кассовый узел – систему специально оборудованных помещений, предназначенных для проведения кассовых операций и операций по инкассации банкнот, монет и ценностей, устройство которого определяется Правилами организации охраны и устройства помещений (постановление Правления НБРК от 24.02.2020 № 14, рег. № 20075). (текст пункта сокращён)",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "external_act_needed",
+      "related_norms": [],
+      "operation": "cash_room_security",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "At the end of work the cashier must lock the cash room. Look for a cashier who leaves and closes the door without turning the key.",
+      "expected_normal_behavior": [
+        "The cashier locks the safe and the door with the key and takes the keys."
+      ],
+      "violation_indicators": [
+        "The cashier leaves, switches off the light and does not lock the door with the key."
+      ],
+      "do_not_flag_if": [
+        "The door lock is not visible.",
+        "The cashier may lock the door outside the camera view."
+      ],
+      "related_events": [
+        "cashier_leaves_workplace",
+        "room_door_left_open"
+      ],
+      "violation_type": "cash_room_not_locked_on_leaving",
+      "explanation_ru": "Помещения кассового узла должны быть специально оборудованы и защищены в соответствии с Правилами организации охраны и устройства помещений. На видео наблюдается: {observation}. Требует проверки по п. 5 Правил (Постановление НБРК № 231) и Правилам № 14.",
+      "dataset_examples": [
+        "X-11"
+      ],
+      "disabled_reason": "Whether the door was locked is almost never visible from inside the room. Keep disabled unless the camera clearly shows the door and the key."
+    },
+    {
+      "id": "kz231_p24_bag_cash_not_counted",
+      "enabled_for_mvp": true,
+      "visual_observability": "medium",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "24",
+        "text_ru": "Кассовые операции по приему наличных денег клиента от подразделения инкассации банка или инкассаторской организации осуществляется кассовым работником банка на основании препроводительного документа, соответствующего требованиям пункта 106 Правил. Кассовый работник: 1) проверяет указание на препроводительном документе необходимых сведений, предусмотренных пунктом 106 Правил; 2) осуществляет регистрацию суммы принимаемых наличных денег в порядке, установленном внутренними документами банка; 3) проверяет целостность сумки; 4) проверяет правильность пломбирования сумки.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "indirect",
+      "related_norms": [
+        {
+          "point": "20 (часть 1)",
+          "text_ru": "Наличные деньги принимаются и пересчитываются кассовым работником в присутствии клиента.",
+          "link_strength": "indirect",
+          "comment": "General duty to count accepted cash."
+        },
+        {
+          "point": "25",
+          "text_ru": "В случае обнаружения нарушения целостности сумки кассовый работник в присутствии работника подразделения инкассации банка или инкассаторской организации вскрывает и пересчитывает находящиеся в них наличные деньги и ценности.",
+          "link_strength": "indirect",
+          "comment": "Recount is directly required if the integrity of the bag is broken."
+        },
+        {
+          "point": "19.2",
+          "text_ru": "принимает банкноты с полистным пересчетом, монеты с пересчетом по кружкам ...",
+          "link_strength": "indirect",
+          "comment": "Same duty for deposits made by clients."
+        }
+      ],
+      "operation": "cash_reception_from_incassation",
+      "actors": [
+        "cashier"
+      ],
+      "llm_description": "Cash from an incassation-style bag (for example a green sealed bag) must be checked, registered and counted by the cashier before it is stored. Look for a cashier who opens the bag, takes the cash out and puts it into a case without counting it.",
+      "expected_normal_behavior": [
+        "The cashier checks the document and the seal of the bag, opens it, counts the cash (by machine or by hand) and registers the amount before storing it."
+      ],
+      "violation_indicators": [
+        "The cashier opens a bag and takes out the cash, then puts the cash into a case or safe with no counting machine use and no manual counting.",
+        "The empty bag is put away right after the cash is taken out and the cash is stored without counting."
+      ],
+      "do_not_flag_if": [
+        "The counting happens before or after the visible part of the video.",
+        "The cash is counted on a machine.",
+        "You cannot tell that the objects are banknotes."
+      ],
+      "related_events": [
+        "cash_bag_opened",
+        "cashier_counts_cash",
+        "cash_placed_in_storage"
+      ],
+      "violation_type": "cash_from_bag_not_counted",
+      "explanation_ru": "При приёме наличных денег от подразделения инкассации кассовый работник проверяет документ и сумку, регистрирует сумму принимаемых наличных денег; наличные деньги принимаются и пересчитываются кассовым работником. На видео наблюдается: {observation}. Требует проверки по пп. 24 и 20 Правил (Постановление НБРК № 231).",
+      "dataset_examples": [
+        "X-13"
+      ],
+      "disabled_reason": null,
+      "timecode_hint": "Report the moment the cash is put into the case without being counted."
+    },
+    {
+      "id": "kz231_p24_bag_accepted_without_check",
+      "enabled_for_mvp": true,
+      "visual_observability": "medium",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "24",
+        "text_ru": "Кассовые операции по приему наличных денег клиента от подразделения инкассации банка или инкассаторской организации осуществляется кассовым работником банка на основании препроводительного документа, соответствующего требованиям пункта 106 Правил. Кассовый работник: 1) проверяет указание на препроводительном документе необходимых сведений, предусмотренных пунктом 106 Правил; 2) осуществляет регистрацию суммы принимаемых наличных денег в порядке, установленном внутренними документами банка; 3) проверяет целостность сумки; 4) проверяет правильность пломбирования сумки.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "indirect",
+      "related_norms": [
+        {
+          "point": "20 (часть 1)",
+          "text_ru": "Наличные деньги принимаются и пересчитываются кассовым работником в присутствии клиента.",
+          "link_strength": "indirect",
+          "comment": "Applies if the person is a client and not a courier."
+        },
+        {
+          "point": "25",
+          "text_ru": "В случае обнаружения нарушения целостности сумки кассовый работник в присутствии работника подразделения инкассации банка или инкассаторской организации вскрывает и пересчитывает находящиеся в них наличные деньги и ценности.",
+          "link_strength": "indirect",
+          "comment": "Opening and recount in presence of the collector if the bag is damaged."
+        }
+      ],
+      "operation": "cash_reception_from_incassation",
+      "actors": [
+        "cashier",
+        "courier_or_client"
+      ],
+      "llm_description": "When a person brings a sealed cash bag, the cashier must check the accompanying paper, the integrity and the seal of the bag and register the amount. Look for a cashier who just takes the bag and a person who leaves immediately, with no inspection and no opening in the person's presence.",
+      "expected_normal_behavior": [
+        "The cashier looks at the paper or label on the bag, checks the seal and registers the amount while the person is still present."
+      ],
+      "violation_indicators": [
+        "A person hands over a sealed bag, the cashier takes it without examining the paper or the seal, and the person leaves at once.",
+        "No opening, counting or registration is visible while the person is still in the room."
+      ],
+      "do_not_flag_if": [
+        "The inspection may happen outside the visible part.",
+        "The cashier is clearly examining the paper or seal.",
+        "You cannot tell that it is a cash bag."
+      ],
+      "related_events": [
+        "cash_bag_handed_over",
+        "client_leaves_window",
+        "cash_bag_opened"
+      ],
+      "violation_type": "cash_bag_accepted_without_inspection",
+      "explanation_ru": "При приёме наличных денег от подразделения инкассации кассовый работник проверяет препроводительный документ, регистрирует сумму, проверяет целостность и пломбирование сумки. На видео наблюдается: {observation}. Требует проверки по п. 24 Правил (Постановление НБРК № 231); если сумку принёс клиент — по п. 20 (приём и пересчёт в присутствии клиента).",
+      "dataset_examples": [
+        "X-17"
+      ],
+      "disabled_reason": null,
+      "timecode_hint": "Report the moment the person leaves while the bag was not inspected."
+    },
+    {
+      "id": "kz231_p22_next_client_during_operation",
+      "enabled_for_mvp": false,
+      "visual_observability": "medium",
+      "evaluation_scope": "operation",
+      "norm": {
+        "document": "Постановление НБРК от 29.11.2019 № 231",
+        "chapter": "Глава 2, параграф 2 — Порядок осуществления кассовых операций по приему наличных денег",
+        "point": "22",
+        "text_ru": "Кассовому работнику не допускается покидать рабочее место до окончания обслуживания клиента.",
+        "source_url": "https://adilet.zan.kz/rus/docs/V1900019680"
+      },
+      "norm_link_strength": "indirect",
+      "related_norms": [
+        {
+          "point": "20 (часть 2)",
+          "text_ru": "На рабочем месте кассового работника находятся наличные деньги клиента. Все ранее принятые наличные деньги хранятся в специальных устройствах, находящихся на рабочем месте кассового работника, закрывающихся на ключ, предназначенных для хранения наличных денег (металлический шкаф, сейф, тележка, ящики стола, тумба).",
+          "link_strength": "indirect",
+          "comment": "Only the cash of the current client should be on the desk."
+        }
+      ],
+      "operation": "client_service",
+      "actors": [
+        "cashier",
+        "client",
+        "next_client"
+      ],
+      "llm_description": "A cashier should finish serving one client before taking documents of another. Look for the cashier accepting the ID or cash of a second person while the first client's cash is still being counted.",
+      "expected_normal_behavior": [],
+      "violation_indicators": [
+        "A second person hands an ID or cash to the cashier while the first client's operation is not finished."
+      ],
+      "do_not_flag_if": [],
+      "related_events": [
+        "next_client_arrives",
+        "id_document_handed",
+        "cashier_counts_cash"
+      ],
+      "violation_type": "next_client_served_during_previous_operation",
+      "explanation_ru": null,
+      "dataset_examples": [
+        "X-18"
+      ],
+      "disabled_reason": "The Rules contain no explicit ban on serving two persons in parallel. Participant #1 should re-watch X-18: if the first client had already left before counting finished, this is the same type as kz231_p20_receive_count (point 20, part 1); if not, decide whether to keep this rule."
+    }
+  ]
+}
