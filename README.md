@@ -1,4 +1,3 @@
-```markdown
 # SOVA — AI Video Compliance Analyzer
 
 AI-powered video analysis system for detecting potential compliance violations.
@@ -112,4 +111,3 @@ git push -u origin feature/your-feature
 Create a Pull Request to merge changes into `main`.
 
 **Note:** Data files, model weights, and `.env` are excluded from Git. Obtain required datasets separately.
-```
