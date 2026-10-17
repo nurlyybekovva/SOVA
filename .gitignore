@@ -1,0 +1,118 @@
+# Python
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+.venv/
+venv/
+env/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+*.egg-info/
+dist/
+build/
+
+.coverage
+htmlcov/
+
+# Node.js / React / Vite
+
+node_modules/
+frontend/node_modules/
+
+frontend/dist/
+frontend/.vite/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+*.tsbuildinfo
+
+# Environment variables
+
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+*.pem
+*.key
+
+secrets/
+
+# Data
+
+data/raw/*
+!data/raw/.gitkeep
+
+data/raw/videos/*
+!data/raw/videos/.gitkeep
+
+data/processed/*
+!data/processed/.gitkeep
+
+# ML Models
+
+models/qwen/*
+!models/qwen/.gitkeep
+
+models/dino/*
+!models/dino/.gitkeep
+
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.gguf
+*.h5
+*.hdf5
+
+# Processing outputs
+
+outputs/*
+!outputs/.gitkeep
+
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+
+# Logs and temp files
+
+*.log
+
+logs/
+tmp/
+temp/
+
+*.tmp
+*.bak
+
+# Jupyter
+
+.ipynb_checkpoints/
+
+# IDE
+
+.vscode/*
+!.vscode/extensions.json
+
+.idea/
+
+# OS
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+
+docker-compose.override.yml
